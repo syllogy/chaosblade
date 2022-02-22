@@ -31,7 +31,7 @@ BUILD_TARGET_FOR_JAVA_CPLUS=build-target
 BUILD_TARGET_DIR_NAME=chaosblade-$(BLADE_VERSION)
 BUILD_TARGET_PKG_DIR=$(BUILD_TARGET)/chaosblade-$(BLADE_VERSION)
 BUILD_TARGET_PKG_NAME=$(BUILD_TARGET)/chaosblade-$(BLADE_VERSION).tar.gz
-BUILD_TARGET_BIN=$(BUILD_TARGET_PKG_DIR)/bin
+
 BUILD_TARGET_LIB=$(BUILD_TARGET_PKG_DIR)/lib
 BUILD_TARGET_YAML=$(BUILD_TARGET_PKG_DIR)/yaml
 BUILD_TARGET_TAR_NAME=$(BUILD_TARGET_DIR_NAME).tar.gz
@@ -43,7 +43,7 @@ BUILD_TARGET_CACHE=$(BUILD_TARGET)/cache
 
 # chaosblade-exec-os
 BLADE_EXEC_OS_PROJECT=https://github.com/chaosblade-io/chaosblade-exec-os.git
-BLADE_EXEC_OS_BRANCH=v1.5.0
+BLADE_EXEC_OS_BRANCH=1.6.0-dev
 
 # chaosblade-exec-docker
 BLADE_EXEC_DOCKER_PROJECT=https://github.com/chaosblade-io/chaosblade-exec-docker.git
@@ -51,7 +51,7 @@ BLADE_EXEC_DOCKER_BRANCH=v1.5.0
 
 # chaosblade-exec-cri
 BLADE_EXEC_CRI_PROJECT=https://github.com/chaosblade-io/chaosblade-exec-cri.git
-BLADE_EXEC_CRI_BRANCH=v1.5.0
+BLADE_EXEC_CRI_BRANCH=1.6.0-dev
 
 # chaosblade-exec-kubernetes
 BLADE_OPERATOR_PROJECT=https://github.com/chaosblade-io/chaosblade-operator.git

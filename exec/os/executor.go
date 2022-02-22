@@ -17,13 +17,17 @@
 package os
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"github.com/chaosblade-io/chaosblade-exec-os/exec"
 	"github.com/chaosblade-io/chaosblade-spec-go/channel"
 	"github.com/chaosblade-io/chaosblade-spec-go/spec"
 	"github.com/chaosblade-io/chaosblade-spec-go/util"
-	"path"
+	os_exec "os/exec"
+	"strings"
+	"syscall"
+	"time"
 )
 
 type Executor struct {
@@ -48,7 +52,7 @@ const (
 func (e *Executor) Exec(uid string, ctx context.Context, model *spec.ExpModel) *spec.Response {
 
 	if model.ActionFlags[exec.ChannelFlag.Name] == "ssh" {
-		sshExecutor:= &exec.SSHExecutor{}
+		sshExecutor := &exec.SSHExecutor{}
 		return sshExecutor.Exec(uid, ctx, model)
 	}
 
@@ -58,20 +62,65 @@ func (e *Executor) Exec(uid string, ctx context.Context, model *spec.ExpModel) *
 		if v == "" {
 			continue
 		}
-		flags = fmt.Sprintf("%s %s=%s", flags, k, v)
+		flags = fmt.Sprintf("%s --%s=%s", flags, k, v)
 	}
 
-	if _, ok := spec.IsDestroy(ctx); ok {
+	_, isDestroy := spec.IsDestroy(ctx)
+
+	if isDestroy {
 		args = fmt.Sprintf("%s %s %s%s uid=%s", DESTROY, model.Target, model.ActionName, flags, uid)
 	} else {
 		args = fmt.Sprintf("%s %s %s%s uid=%s", CREATE, model.Target, model.ActionName, flags, uid)
 	}
 
-	response := c.Run(ctx, path.Join(util.GetBinPath(), OS_BIN), args)
-	if response.Success {
-		return spec.Decode(response.Result.(string), response)
+	// todo nohup
+	if model.Target == "disk" && model.ActionName == "fill" && model.ActionFlags["retain-handle"] == "true" {
+		cl := channel.NewLocalChannel()
+		response := cl.Run(ctx, "nohup", fmt.Sprintf("%s %s >> /dev/null 2>&1 &", util.GetChaosOsBin(), args))
+		if !response.Success {
+			return response
+		}
+		// check pid todo
+		time.Sleep(1 * time.Second)
+		ctx = context.WithValue(ctx, channel.ProcessKey, uid)
+		pids, err := c.GetPidsByProcessName(OS_BIN, ctx)
+		if len(pids) == 0 || err != nil {
+			return spec.ReturnFail(spec.OsCmdExecFailed, "create experiment failed, can't found chaos_os bin")
+		}
+		return spec.ReturnSuccess(uid)
+	}
+	argsArray := strings.Split(args, " ")
+	command := os_exec.CommandContext(ctx, util.GetChaosOsBin(), argsArray...)
+
+	if model.ActionProcessHang && !isDestroy {
+		if err := command.Start(); err != nil {
+			sprintf := fmt.Sprintf("create experiment failed, %v", err)
+			return spec.ReturnFail(spec.OsCmdExecFailed, sprintf)
+		}
+		command.SysProcAttr = &syscall.SysProcAttr{}
+		// check pid todo
+		time.Sleep(1 * time.Second)
+		ctx = context.WithValue(ctx, channel.ProcessKey, uid)
+		pids, err := c.GetPidsByProcessName(OS_BIN, ctx)
+		if len(pids) == 0 || err != nil {
+			return spec.ReturnFail(spec.OsCmdExecFailed, "create experiment failed, can't found chaos_os bin")
+		}
+		return spec.ReturnSuccess(uid)
 	} else {
-		return response
+		buf := new(bytes.Buffer)
+		command.Stdout = buf
+		command.Stderr = buf
+
+		if err := command.Start(); err != nil {
+			sprintf := fmt.Sprintf("create experiment failed, %v", err)
+			return spec.ReturnFail(spec.OsCmdExecFailed, sprintf)
+		}
+
+		if err := command.Wait(); err != nil {
+			sprintf := fmt.Sprintf("create experiment failed, %v", err)
+			return spec.ReturnFail(spec.OsCmdExecFailed, sprintf)
+		}
+		return spec.Decode(buf.String(), nil)
 	}
 }
 
